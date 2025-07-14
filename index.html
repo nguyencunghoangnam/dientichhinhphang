@@ -1,0 +1,190 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mô phỏng diện tích hình phẳng</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.1/math.js"></script>
+  <script>
+    window.MathJax = {
+      tex: {inlineMath: [['$', '$'], ['\\(', '\\)']]}
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Roboto&display=swap');
+    body {
+      font-family: 'Roboto', sans-serif;
+      padding: 20px;
+      background: #eef2f7;
+      color: #333;
+    }
+    h2 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    #controls {
+      background: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    #controls label {
+      display: block;
+      margin-top: 10px;
+      font-weight: 500;
+    }
+    #plot {
+      width: 100%;
+      height: 500px;
+      margin-top: 20px;
+    }
+    #result, #latex-display {
+      margin-top: 20px;
+      font-weight: bold;
+      background: #fff;
+      padding: 10px;
+      border-left: 5px solid #3498db;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    input[type="text"], input[type="number"], input[type="range"] {
+      padding: 6px;
+      width: 200px;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+    #controls label { display: block; margin-top: 10px; }
+    #plot { width: 100%; height: 500px; margin-top: 20px; }
+    #result, #latex-display { margin-top: 20px; font-weight: bold; }
+    input[type="text"], input[type="number"] { padding: 4px; width: 200px; }
+  </style>
+</head>
+<body>
+  <h2>Mô phỏng tính diện tích hình phẳng y = f(x)</h2>
+  <div id="controls">
+    <label>Hàm f(x): <input type="text" id="functionInput" value="x^2"></label>
+    <label>Cận a: <input type="number" id="aInput" value="0"></label>
+    <label>Cận b: <input type="number" id="bInput" value="1"></label>
+    <label>Số lượng hình chữ nhật: <span id="rectCount">5</span>
+      <input type="range" id="rectSlider" min="1" max="100" value="5">
+    </label>
+  </div>
+
+  <div id="plot"></div>
+  <div id="result"></div>
+  <div id="latex-display"></div>
+
+  <script>
+    const functionInput = document.getElementById('functionInput');
+    const aInput = document.getElementById('aInput');
+    const bInput = document.getElementById('bInput');
+    const rectSlider = document.getElementById('rectSlider');
+    const rectCountDisplay = document.getElementById('rectCount');
+    const resultDisplay = document.getElementById('result');
+    const latexDisplay = document.getElementById("latex-display");
+
+    function numericalIntegral(f, a, b, steps = 1000) {
+      const dx = (b - a) / steps;
+      let area = 0;
+      for (let i = 0; i < steps; i++) {
+        const x1 = a + i * dx;
+        const x2 = x1 + dx;
+        area += (f(x1) + f(x2)) / 2 * dx; // Quy tắc hình thang
+      }
+      return area;
+    }
+
+    function updatePlot() {
+      let fExpr;
+      try {
+        fExpr = math.compile(functionInput.value);
+      } catch (err) {
+        resultDisplay.innerHTML = "Hàm không hợp lệ.";
+        return;
+      }
+
+      const a = parseFloat(aInput.value);
+      const b = parseFloat(bInput.value);
+      const n = parseInt(rectSlider.value);
+
+      if (isNaN(a) || isNaN(b) || a === b || isNaN(n)) {
+        resultDisplay.innerHTML = "Cận a, b hoặc số lượng hình chữ nhật không hợp lệ.";
+        return;
+      }
+
+      const f = x => {
+        try {
+          return fExpr.evaluate({x});
+        } catch (err) {
+          return NaN;
+        }
+      };
+
+      const dx = (b - a) / n;
+      let x = [], y = [], rectX = [], rectH = [];
+      let approxArea = 0;
+
+      for (let i = 0; i <= 100; i++) {
+        const xi = a + (b - a) * i / 100;
+        x.push(xi);
+        y.push(f(xi));
+      }
+
+      for (let i = 0; i < n; i++) {
+        const xi = a + i * dx;
+        const height = f(xi);
+        if (!isNaN(height)) approxArea += height * dx;
+
+        rectX.push(xi + dx / 2);
+        rectH.push(height);
+      }
+
+      const integral = numericalIntegral(f, a, b);
+      const absIntegral = numericalIntegral(x => Math.abs(f(x)), a, b);
+
+      const functionTrace = {
+        x: x, y: y, mode: 'lines', name: 'Hàm số', line: { color: 'blue' }
+      };
+
+      const rectangles = {
+        type: 'bar',
+        x: rectX,
+        y: rectH,
+        width: dx,
+        name: 'Tổng hình chữ nhật',
+        marker: { color: 'rgba(255,100,100,0.6)' },
+        opacity: 0.6
+      };
+
+      Plotly.newPlot('plot', [functionTrace, rectangles], {
+        title: 'Tính diện tích hình phẳng',
+        xaxis: { title: 'x' },
+        yaxis: { title: 'y' },
+        showlegend: true
+      });
+
+      resultDisplay.innerHTML = `Diện tích xấp xỉ (tổng hình chữ nhật): ${approxArea.toFixed(6)}`;
+
+      latexDisplay.innerHTML = `\\[
+        \\int_{${a}}^{${b}} f(x)\\,dx = ${integral.toFixed(6)}
+        \\] \\[
+        \\int_{${a}}^{${b}} |f(x)|\\,dx = ${absIntegral.toFixed(6)}
+        \\]`;
+      MathJax.typesetPromise();
+    }
+
+    [functionInput, aInput, bInput].forEach(input => input.addEventListener('change', updatePlot));
+    rectSlider.addEventListener('input', () => {
+      rectCountDisplay.textContent = rectSlider.value;
+      updatePlot();
+    });
+
+    updatePlot();
+  </script>
+</body>
+</html>
